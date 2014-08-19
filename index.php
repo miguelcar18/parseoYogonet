@@ -1,0 +1,126 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="es" lang="es" dir="ltr">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+</head>
+<body>
+<?php
+    $arreglo = parsearApuestasDeportivasAction();
+
+    function parsearApuestasDeportivasAction() 
+    {
+
+        //$em = $this -> getDoctrine() -> getManager();
+        $contadorImagenes = 0;
+        $contadorPronosticos = 0;
+        $contadorNoticias = 0;
+
+        //Ruta del listado de noticias de la web a analizar
+        $url = 'http://www.yogonet.com/latinoamerica/';
+
+        //Con la funcion file_get_contents se obtiene todo el html que devuelve la web señalada
+        ini_set('max_execution_time', 300);
+        $htm = file_get_contents($url);
+        //Luego de estudiar el codigo fuente de la web, se descubre que todos los elementos de interes
+        //Se encuentran dentro del div LATERAL_IZQUIERDO_DETALLE, por ende se hace un explode para poder
+        //Obtener los argumentos que esten antes o despues (adentro del div)
+        
+        //Noticias Principales en <div class="panel-col-top panel-panel">
+        $str = '<div class="panel-col-top panel-panel">';
+        $arr = explode($str, $htm);
+        $arr = explode('<div class="panels_pane panel-pane pane-block pane-yogonet-ads-centralinferior2home" >', $arr[1]);
+
+        $contenido = $arr[0];
+
+        //Una vez adentro del div de nuestro interes, se observa que todos los enlaces que se necesitan
+        //Comienzan por detalle_noticia.php?id=
+        $enlaces = explode("\"/latinoamerica/", $contenido);
+
+        //Se hace un explode para obtener todos los codigos html que comiencen justo despues de http://www.apuestas-deportivas.es/pronostico/
+
+        $idNoticias = array();
+        //Se realiza un ciclo for para obtener todos los ids de las noticias
+        for ($i=1; $i < count($enlaces); $i++) 
+        { 
+            $cadena = $enlaces[$i];
+            //En estas cadenas resultados del ultimo explode hay mas contenido del que nos interesa
+            //Un ejemplo de un link es detalle_noticia.php?id=83851" por ende se sabe que el codigo del id
+            //termina justo antes de la comilla " para esto se usa strpos para ubicar la posicion y luego extraer el id
+            $posicionFinal = strpos($cadena, '"');
+            $id = substr($cadena, 0, $posicionFinal);
+            //Se comienca en $i-1 porque el primer link que devuelve esta web siempre es vacio y se requieren 
+            //son los numeros de los id
+            if($i!=(count($enlaces)-1))$idNoticias[$i-1] = $id;
+        }
+
+        /*
+        Para el listado de noticias de sector del juego por cada cuadricula hay 3 enlaces,
+        uno en el texto, otro en la imagen y otro en el titulo, por ende despues de buscar los links
+        apareceran duplicados, para evitar este problema se usa la funcion array_unique que elimina
+        los duplicados, pero conserva las antiguas claves, por esto se debe usar foreach y no un for normal
+        */
+        $idNoticias = array_unique($idNoticias); 
+        //var_dump($idNoticias);exit;
+        /*
+        Se procede a recorrer cada uno de los enlaces para extraer la data y almacenarla en la base de datos
+        Se busca recorrer el listado de urls que se genero ejemplo:
+        http://sectordeljuego.com/detalle_noticia.php?id=83851
+        http://sectordeljuego.com/detalle_noticia.php?id=83850
+        http://sectordeljuego.com/detalle_noticia.php?id=83849
+        .
+        .
+        .
+        Y asi sucesivamente, se ira recorriendo y obteniendo los textos y descargando una imagen por 
+        cada articulo
+        */
+
+        foreach ($idNoticias as $key => $value) 
+        {
+            ini_set('max_execution_time', 300);
+            // Tener en cuenta que no es igual la ruta lista_noticias a detalle_noticia
+            $urlNoticia = "http://www.yogonet.com/latinoamerica/".$value;
+            
+            $html = file_get_contents($urlNoticia);
+            $busqueda = 'class="node node-type-noticia build-mode-full clearfix"';
+            $html = explode($busqueda, $html);
+            $html = explode('<div class="titulo-teaser">', $html[1]);
+            $html = $html[0];
+            $codigoCompleto=$html;
+            
+            //Titulo
+            $busquedaTituloInicio = '<h3 class="field-label">Titulo</h3>';
+            $busquedaTituloFin='</div>
+
+
+<div id="plugins-sociales">';
+            $parteTitulo = explode($busquedaTituloInicio, $html);
+            $parteTitulo = explode($busquedaTituloFin, $parteTitulo[1]);
+            $parteTitulo = $parteTitulo[0].'</div>';
+            $reemplazarInicio='<div class="field-items">
+      <div class="field-item">';
+            $reemplazarFin='</div>
+  </div>';
+            $titulo=str_replace($reemplazarInicio,'',str_replace($reemplazarFin,'',$parteTitulo));
+            echo $titulo.'<br>';
+            
+            //Imagen
+            $busquedaImagenInicio = '<h3 class="field-label">Archivo de imagen (URL)</h3>';
+            $busquedaImagenFin='</div>
+</td>
+<td width="99%">';
+            $parteImagen = explode($busquedaImagenInicio, $html);
+            $parteImagen = explode($busquedaImagenFin, $parteImagen[1]);
+            $parteImagen = $parteImagen[0];
+            $reemplazarIInicio='<div class="field-items">
+      <div class="field-item">';
+            $reemplazarIFin='</div>
+  </div>';
+            $imagen=str_replace($reemplazarIInicio,'',str_replace($reemplazarIFin,'',$parteImagen));
+            echo $imagen.'<br>';
+            
+        }
+    }
+?>
+</body>
+</html>
+    

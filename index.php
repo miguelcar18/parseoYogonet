@@ -26,11 +26,13 @@
         //Obtener los argumentos que esten antes o despues (adentro del div)
         
         //Noticias Principales en <div class="panel-col-top panel-panel">
-        $str = '<div class="panel-col-top panel-panel">';
+        $str = 'panel-col-top panel-panel';
         $arr = explode($str, $htm);
-        $arr = explode('<div class="panels_pane panel-pane pane-block pane-yogonet-ads-centralinferior2home" >', $arr[1]);
+        $arr = explode('panel-col-bottom panel-panel', $arr[1]);
 
         $contenido = $arr[0];
+
+        //var_dump($contenido);exit;
 
         //Una vez adentro del div de nuestro interes, se observa que todos los enlaces que se necesitan
         //Comienzan por detalle_noticia.php?id=
@@ -50,7 +52,7 @@
             $id = substr($cadena, 0, $posicionFinal);
             //Se comienca en $i-1 porque el primer link que devuelve esta web siempre es vacio y se requieren 
             //son los numeros de los id
-            if($i!=(count($enlaces)-1))$idNoticias[$i-1] = $id;
+            $idNoticias[$i-1] = $id;
         }
 
         /*
@@ -59,8 +61,8 @@
         apareceran duplicados, para evitar este problema se usa la funcion array_unique que elimina
         los duplicados, pero conserva las antiguas claves, por esto se debe usar foreach y no un for normal
         */
-        $idNoticias = array_unique($idNoticias); 
-        //var_dump($idNoticias);exit;
+        $idNoticias = array_unique($idNoticias);
+       
         /*
         Se procede a recorrer cada uno de los enlaces para extraer la data y almacenarla en la base de datos
         Se busca recorrer el listado de urls que se genero ejemplo:
@@ -81,42 +83,56 @@
             $urlNoticia = "http://www.yogonet.com/latinoamerica/".$value;
             
             $html = file_get_contents($urlNoticia);
-            $busqueda = 'class="node node-type-noticia build-mode-full clearfix"';
+            $busqueda = 'buildmode-full';
             $html = explode($busqueda, $html);
-            $html = explode('<div class="titulo-teaser">', $html[1]);
+            $html = explode('field-field-fuente', $html[1]);
             $html = $html[0];
-            $codigoCompleto=$html;
             
             //Titulo
-            $busquedaTituloInicio = '<h3 class="field-label">Titulo</h3>';
-            $busquedaTituloFin='</div>
-
-
-<div id="plugins-sociales">';
+            $busquedaTituloInicio = 'field-title-noticia-importada">';
+            $busquedaTituloFin='<div id="plugins-sociales">';
             $parteTitulo = explode($busquedaTituloInicio, $html);
             $parteTitulo = explode($busquedaTituloFin, $parteTitulo[1]);
-            $parteTitulo = $parteTitulo[0].'</div>';
-            $reemplazarInicio='<div class="field-items">
-      <div class="field-item">';
-            $reemplazarFin='</div>
-  </div>';
-            $titulo=str_replace($reemplazarInicio,'',str_replace($reemplazarFin,'',$parteTitulo));
-            echo $titulo.'<br>';
-            
-            //Imagen
-            $busquedaImagenInicio = '<h3 class="field-label">Archivo de imagen (URL)</h3>';
-            $busquedaImagenFin='</div>
-</td>
-<td width="99%">';
-            $parteImagen = explode($busquedaImagenInicio, $html);
-            $parteImagen = explode($busquedaImagenFin, $parteImagen[1]);
-            $parteImagen = $parteImagen[0];
-            $reemplazarIInicio='<div class="field-items">
-      <div class="field-item">';
-            $reemplazarIFin='</div>
-  </div>';
-            $imagen=str_replace($reemplazarIInicio,'',str_replace($reemplazarIFin,'',$parteImagen));
-            echo $imagen.'<br>';
+            $titulo = $parteTitulo[0];
+
+            $busquedaTituloInicio = 'field-item">';
+            $busquedaTituloFin='</div>';
+
+            $parteTitulo = explode($busquedaTituloInicio, $titulo);
+            $parteTitulo = explode($busquedaTituloFin, $parteTitulo[1]);
+            $titulo = $parteTitulo[0];
+
+            echo'<br>'.$titulo;
+
+            $busquedaInicio = 'http://www.yogonet.com/latinoamerica/sites/default/files/noticias/imagenes/';
+            $busquedaFin='?';
+
+            $elemento = explode($busquedaInicio, $html);
+            if(count($elemento)>1){
+            $elemento = explode($busquedaFin, $elemento[1]);
+            $imagen = $elemento[0];
+            $imagen = $busquedaInicio .$imagen;
+
+            $urlImagen = $imagen;
+            $extension = explode(".", $urlImagen);
+            $extension = $extension[count($extension) - 1];
+            //$path = $this -> container -> getParameter('kernel.root_dir') . '/../web/' . $this -> getUploadDir();
+            $path = 'C:/wamp/www/parseoYogonet/uploads';
+            $nombreImagen = sha1($urlImagen);
+
+            ini_set('max_execution_time', 300);
+            $ch = curl_init($urlImagen);
+            $fp = fopen(sprintf('%s/%s.%s', $path, $nombreImagen, $extension), 'wb');
+            curl_setopt($ch, CURLOPT_FILE, $fp);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_exec($ch);
+            curl_close($ch);
+            fclose($fp);
+
+            echo'<br>'.$nombreImagen.'.'.$extension;
+            }
+
+
             
         }
     }
